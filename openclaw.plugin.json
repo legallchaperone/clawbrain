@@ -1,0 +1,72 @@
+{
+  "name": "openclaw-memory-engine",
+  "version": "0.1.0",
+  "description": "Credit-aware adaptive memory for OpenClaw agents",
+  "type": "memory",
+  "main": "dist/index.js",
+  "openclaw": {
+    "minVersion": "0.8.0",
+    "hooks": {
+      "preTurn": "dist/interceptor.js:preTurn",
+      "postTurn": "dist/interceptor.js:postTurn",
+      "preCompaction": "dist/interceptor.js:preCompaction",
+      "sessionStart": "dist/interceptor.js:sessionStart",
+      "heartbeat": "dist/lifecycle.js:onHeartbeat"
+    },
+    "skills": ["skills/"],
+    "config": {
+      "schema": {
+        "creditAlpha": {
+          "type": "number",
+          "default": 0.1,
+          "description": "Learning rate for credit updates"
+        },
+        "consolidationInterval": {
+          "type": "string",
+          "default": "24h",
+          "description": "How often to run episodic consolidation"
+        },
+        "promotionInterval": {
+          "type": "string",
+          "default": "48h",
+          "description": "How often to promote episodes to entities"
+        },
+        "pruneInterval": {
+          "type": "string",
+          "default": "7d",
+          "description": "How often to run memory pruning"
+        },
+        "pruneThreshold": {
+          "type": "number",
+          "default": 0.2,
+          "description": "Credit score below which memories are prunable"
+        },
+        "pruneMinAge": {
+          "type": "number",
+          "default": 30,
+          "description": "Minimum age in days before a memory can be pruned"
+        },
+        "maxContextBudget": {
+          "type": "number",
+          "default": 5000,
+          "description": "Max tokens for memory injection into context"
+        },
+        "embeddingProvider": {
+          "type": "string",
+          "default": "local",
+          "enum": ["local", "openai", "gemini"]
+        },
+        "enableContradictionDetection": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to check for contradicting facts on entity updates"
+        },
+        "debug": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable verbose debug logging"
+        }
+      }
+    }
+  }
+}
