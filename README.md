@@ -55,14 +55,49 @@ This is counterfactual credit assignment from reinforcement learning, applied to
 
 ## Installation
 
-```bash
-# Install the plugin
-openclaw plugin install openclaw-memory-engine
+### From a local directory (recommended for self-hosted/Docker)
 
-# Migrate existing memories
-openclaw memory-engine migrate
-# or manually:
-./scripts/migrate.sh ~/.openclaw/workspace
+Build the plugin first, then install it into OpenClaw:
+
+```bash
+npm install
+npm run build
+openclaw plugins install /path/to/openclaw-memory-engine
+openclaw plugins enable openclaw-memory-engine
+```
+
+#### Docker
+
+OpenClaw runs as the `node` user inside the container. Mount your config volume to
+`/home/node/.openclaw` (not `/root/.openclaw`):
+
+```bash
+# One-time install (copy to the shared config volume, then install inside Docker)
+cp -r . ~/openclaw-data/plugins/openclaw-memory-engine/
+
+docker run --rm \
+  -v ~/openclaw-data/config:/home/node/.openclaw \
+  -v ~/openclaw-data/plugins:/app/plugins \
+  openclaw:local \
+  sh -c "cd /app/plugins/openclaw-memory-engine && npm install --omit=dev \
+         && cd /app && node openclaw.mjs plugins install /app/plugins/openclaw-memory-engine \
+         && node openclaw.mjs plugins enable openclaw-memory-engine"
+```
+
+Then use this corrected volume mount for all future `docker run` invocations:
+
+```bash
+docker run -it --rm \
+  -v ~/openclaw-data/workspace:/app/workspace \
+  -v ~/openclaw-data/config:/home/node/.openclaw \
+  -v ~/openclaw-data/plugins:/app/plugins \
+  openclaw:local
+```
+
+### Migrate existing memories
+
+```bash
+./scripts/migrate.sh ~/.openclaw/memory-engine
 ```
 
 ## Configuration

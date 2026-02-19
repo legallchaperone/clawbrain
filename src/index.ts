@@ -6,6 +6,7 @@
  */
 
 import * as path from 'path';
+import { v4 as uuidv4 } from 'uuid';
 import type { PluginConfig, HookContext } from './types';
 import { DEFAULT_CONFIG } from './types';
 import { MetadataDB } from './utils/db';
@@ -41,21 +42,14 @@ export function createMemoryEngine(
 ): MemoryEngineInstance {
   const config: PluginConfig = { ...DEFAULT_CONFIG, ...userConfig };
 
-  // Initialize database
   const dbPath = path.join(workspaceDir, 'memory-engine', 'engine.db');
   const db = new MetadataDB(dbPath);
 
-  // Initialize core components
   const store = new MemoryStore(workspaceDir, db, config);
   const creditTracker = new CreditTracker(db, config);
   const retrieval = new RetrievalEngine(store, db, config);
   const budgetManager = new ContextBudgetManager(config);
-  const memoryGenerator = new MemoryGenerator(
-    store,
-    retrieval,
-    config,
-    workspaceDir,
-  );
+  const memoryGenerator = new MemoryGenerator(store, retrieval, config, workspaceDir);
   const contradictionDetector = new ContradictionDetector(db, config);
   const lifecycle = new LifecycleManager(
     store,
@@ -71,8 +65,6 @@ export function createMemoryEngine(
     memoryGenerator,
     budgetManager,
   );
-
-  // Create hook handlers
   const hooks = createHookHandlers(interceptor);
 
   return {
@@ -92,61 +84,108 @@ export function createMemoryEngine(
 
 // --- OpenClaw Plugin Interface ---
 
-let instance: MemoryEngineInstance | null = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export default function register(api: any): void {
+  // Plugin data lives under the OpenClaw state dir so it survives restarts
+  const stateDir: string = api.runtime.state.resolveStateDir();
+  const workspaceDir: string = path.join(stateDir, 'memory-engine');
+  const pluginConfig: Partial<PluginConfig> =
+    (api.pluginConfig as Partial<PluginConfig>) ?? {};
 
-/**
- * Plugin activation handler.
- * Called by OpenClaw when the plugin is loaded.
- */
-export function activate(context: {
-  workspaceDir: string;
-  config?: Partial<PluginConfig>;
-}): void {
-  instance = createMemoryEngine(context.workspaceDir, context.config);
-}
+  let engine: MemoryEngineInstance | null = null;
+  let currentSessionId = '';
+  let currentTurnId = '';
+  let sessionWorkingMemory = '';
 
-/**
- * Plugin deactivation handler.
- */
-export function deactivate(): void {
-  if (instance) {
-    instance.shutdown();
-    instance = null;
+  function getEngine(): MemoryEngineInstance {
+    if (!engine) {
+      engine = createMemoryEngine(workspaceDir, pluginConfig);
+    }
+    return engine;
   }
-}
 
-/**
- * Get the current engine instance.
- */
-export function getInstance(): MemoryEngineInstance | null {
-  return instance;
-}
+  function makeContext(overrides: Partial<HookContext> = {}): HookContext {
+    return {
+      sessionId: currentSessionId,
+      turnId: currentTurnId || uuidv4(),
+      config: { ...DEFAULT_CONFIG, ...pluginConfig },
+      workspaceDir,
+      ...overrides,
+    };
+  }
 
-// --- Hook Exports ---
+  // Rebuild search index and warm up working memory summary at session start
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  api.on('session_start', async (event: any) => {
+    currentSessionId = (event?.sessionId as string | undefined) ?? uuidv4();
+    const eng = getEngine();
+    const result = await eng.interceptor.sessionStart(
+      makeContext({ sessionId: currentSessionId }),
+    );
+    sessionWorkingMemory = result.workingMemory;
+  });
 
-export async function sessionStart(context: HookContext): Promise<unknown> {
-  if (!instance) return {};
-  return instance.hooks.sessionStart(context);
-}
+  // Retrieve relevant memories and inject them before the prompt is built
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  api.on('before_prompt_build', async (event: any) => {
+    const userMessage: string =
+      (event?.latestUserMessage as string | undefined) ??
+      (event?.userMessage as string | undefined) ??
+      '';
+    currentTurnId = (event?.turnId as string | undefined) ?? uuidv4();
 
-export async function preTurn(context: HookContext): Promise<unknown> {
-  if (!instance) return {};
-  return instance.hooks.preTurn(context);
-}
+    const ctx = makeContext({ userMessage, turnId: currentTurnId });
+    const eng = getEngine();
+    const result = await eng.interceptor.preTurn(ctx);
 
-export async function postTurn(context: HookContext): Promise<unknown> {
-  if (!instance) return {};
-  return instance.hooks.postTurn(context);
-}
+    const parts: string[] = [];
+    if (sessionWorkingMemory) parts.push(sessionWorkingMemory);
+    if (result.injectedMemories) parts.push(result.injectedMemories);
 
-export async function preCompaction(context: HookContext): Promise<void> {
-  if (!instance) return;
-  return instance.hooks.preCompaction(context);
-}
+    if (parts.length > 0) {
+      return { prependContext: parts.join('\n\n---\n\n') };
+    }
+    return {};
+  });
 
-export async function heartbeat(): Promise<void> {
-  if (!instance) return;
-  return instance.lifecycle.onHeartbeat();
+  // Infer outcome and update credit scores after the agent finishes
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  api.on('agent_end', async (event: any) => {
+    const ctx = makeContext({
+      userMessage:
+        (event?.input?.latestUserMessage as string | undefined) ?? '',
+      agentResponse:
+        typeof event?.output === 'string'
+          ? event.output
+          : ((event?.output?.text as string | undefined) ?? ''),
+      turnId: currentTurnId,
+    });
+    const eng = getEngine();
+    await eng.interceptor.postTurn(ctx);
+    currentTurnId = '';
+  });
+
+  // Refresh MEMORY.md before context compaction
+  api.on('before_compaction', async () => {
+    const eng = getEngine();
+    await eng.interceptor.preCompaction(makeContext());
+    sessionWorkingMemory = eng.memoryGenerator.generate();
+  });
+
+  // Hourly background heartbeat for consolidation, promotion, and pruning
+  api.registerService({
+    id: 'memory-engine-heartbeat',
+    start: () => {
+      const interval = setInterval(() => {
+        if (engine) {
+          engine.lifecycle.onHeartbeat().catch((err: Error) => {
+            console.error('[memory-engine] Heartbeat error:', err);
+          });
+        }
+      }, 60 * 60 * 1000);
+      return () => clearInterval(interval);
+    },
+  });
 }
 
 // Re-export types and components for external use
