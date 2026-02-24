@@ -4,7 +4,7 @@
 
 Standard memory systems rank retrieved memories by semantic similarity or recency. Neither signal captures actual utility — how much did retrieving this memory help the agent complete a task?
 
-The `openclaw-memory-engine` tracks task outcomes and uses them to assign credit to the memories that were retrieved before success or failure. Over time, this signal produces a utility-weighted ranking that outperforms pure semantic or recency-based approaches.
+**clawbrain** tracks task outcomes and uses them to assign credit to the memories that were retrieved before success or failure. Over time, this signal produces a utility-weighted ranking that outperforms pure semantic or recency-based approaches.
 
 ## The Credit Scoring Model
 

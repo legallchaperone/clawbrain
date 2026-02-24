@@ -1,5 +1,5 @@
 /**
- * openclaw-memory-engine — Plugin Entry Point
+ * clawbrain — Plugin Entry Point
  *
  * Initializes all components and registers hooks with OpenClaw.
  * This is the main export consumed by the plugin system.

@@ -11,7 +11,7 @@ ENGINE_DIR="$WORKSPACE_DIR/memory-engine"
 DB_FILE="$ENGINE_DIR/engine.db"
 
 echo "========================================="
-echo "  openclaw-memory-engine Dashboard"
+echo "  clawbrain Dashboard"
 echo "========================================="
 echo ""
 

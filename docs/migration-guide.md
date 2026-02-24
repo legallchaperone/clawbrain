@@ -9,7 +9,7 @@ steps to migrate to the structured memory engine.
 
 ```bash
 # Install the plugin
-openclaw plugin install openclaw-memory-engine
+openclaw plugin install clawbrain
 
 # Run the migration script
 ./scripts/migrate.sh ~/.openclaw/workspace

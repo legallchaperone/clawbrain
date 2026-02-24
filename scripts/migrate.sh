@@ -16,7 +16,7 @@ WORKSPACE_DIR="${1:-.}"
 MEMORY_FILE="$WORKSPACE_DIR/MEMORY.md"
 ENGINE_DIR="$WORKSPACE_DIR/memory-engine"
 
-echo "=== openclaw-memory-engine Migration ==="
+echo "=== clawbrain Migration ==="
 echo ""
 
 # Step 1: Check for existing MEMORY.md

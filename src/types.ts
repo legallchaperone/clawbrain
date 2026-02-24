@@ -1,5 +1,5 @@
 /**
- * Core type definitions for the openclaw-memory-engine.
+ * Core type definitions for clawbrain.
  */
 
 // --- Memory Types ---
