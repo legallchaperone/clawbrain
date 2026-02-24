@@ -1,8 +1,8 @@
 {
-  "id": "openclaw-memory-engine",
-  "name": "openclaw-memory-engine",
+  "id": "clawbrain",
+  "name": "clawbrain",
   "version": "0.1.0",
-  "description": "Credit-aware adaptive memory for OpenClaw agents",
+  "description": "Credit-assignment, self-evolving memory for OpenClaw agents",
   "kind": "memory",
   "skills": ["skills/"],
   "configSchema": {

@@ -1,7 +1,7 @@
 {
-  "name": "openclaw-memory-engine",
+  "name": "clawbrain",
   "version": "0.1.0",
-  "description": "Credit-aware adaptive memory system for OpenClaw agents",
+  "description": "Credit-assignment, self-evolving memory for OpenClaw agents",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
@@ -13,10 +13,12 @@
     "prepublishOnly": "npm run build"
   },
   "keywords": [
+    "clawbrain",
     "openclaw",
     "memory",
     "credit-assignment",
     "adaptive-memory",
+    "self-evolving",
     "knowledge-management"
   ],
   "openclaw": {
